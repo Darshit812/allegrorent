@@ -1843,7 +1843,6 @@ function confirmReturn(){
     var inv=db.inventory.find(function(i){return String(i.name)===String(it.name) && String(i.itemId||'')===String(it.itemId||'');});
     
     if(inv){
-      // NAYA: Sahi bucket me qty save karna
       if(cond==='Working') { 
          inv.availQty += qty; 
       }
@@ -1890,7 +1889,19 @@ function confirmReturn(){
   }
   
   closeM('m-return'); renderActive(); updBadges();
-  syncDB(function(){ toast('Return Saved & Synced!'); });
+  
+  // 🔥 FAST ATOMIC API CALL 
+  var t = document.getElementById('toast'); t.textContent='Processing Return...'; t.className='toast inf show';
+  callAPI('updateRecord', {record: r, invUpdates: invUpdates, email: windowUSER_EMAIL, token: windowUSER_PASS})
+     .then(function(res){
+         if(res.success){
+             t.className='toast wok show'; t.textContent='Return Saved & Synced!';
+             setTimeout(function(){t.classList.remove('show');},2000);
+             setTimeout(function(){ fetchHeavyData(false, true); }, 500); // Silent sync update
+         } else {
+             if(res.error==='Unauthorized') logoutApp(); else toast(res.error,'err');
+         }
+     }).catch(function(){toast('Update failed','err');});
 }
 
 // ── DUES ──
@@ -1971,7 +1982,20 @@ function saveDuesJE(){
   r.jobExp.push({cat:cat, desc:desc, amt:amt, date:today()});
   document.getElementById('dues-je-desc').value = '';
   document.getElementById('dues-je-amt').value = '';
-  syncDB(function(){ openDuesDetail(viewDuesBillId); toast('Job Expense Saved!'); });
+  
+  // 🔥 FAST ATOMIC API CALL 
+  var t = document.getElementById('toast'); t.textContent='Saving Expense...'; t.className='toast inf show';
+  callAPI('updateRecord', {record: r, invUpdates: [], email: windowUSER_EMAIL, token: windowUSER_PASS})
+     .then(function(res){
+         if(res.success){
+             t.className='toast wok show'; t.textContent='Job Expense Saved!';
+             setTimeout(function(){t.classList.remove('show');},2000);
+             openDuesDetail(viewDuesBillId);
+             setTimeout(function(){ fetchHeavyData(false, true); }, 500);
+         } else {
+             if(res.error==='Unauthorized') logoutApp(); else toast(res.error,'err');
+         }
+     }).catch(function(){toast('Update failed','err');});
 }
 
 function openPay(bid){
@@ -1989,19 +2013,29 @@ function confirmPay(){
   if(amt<=0){toast('Enter valid amount','err');return;}
   if(amt>r.balance){toast('Cannot receive more than balance: '+cur(r.balance),'err');return;}
   var pt=document.getElementById('pay-type')?document.getElementById('pay-type').value:'Cash';
-  r.balance-=amt;r.payments.push({amount:amt,date:today(),type:'Payment ('+pt+')'});
+  r.balance-=amt;
+  r.payments.push({amount:amt,date:today(),type:'Payment ('+pt+')'});
   
   if(r.balance<=0){
     r.status='closed';
     db.records=db.records.filter(function(x){return x.billId!==r.billId;});
-    // BUG FIX
     db.history.push(r);
   }
   
   closeM('m-pay'); renderDues(); updBadges();
   
-  // BUG FIX
-  syncDB(function(){ toast('Payment Saved & Synced!'); });
+  // 🔥 FAST ATOMIC API CALL 
+  var t = document.getElementById('toast'); t.textContent='Updating Payment...'; t.className='toast inf show';
+  callAPI('updateRecord', {record: r, invUpdates: [], email: windowUSER_EMAIL, token: windowUSER_PASS})
+     .then(function(res){
+         if(res.success){
+             t.className='toast wok show'; t.textContent='Payment Saved!';
+             setTimeout(function(){t.classList.remove('show');},2000);
+             setTimeout(function(){ fetchHeavyData(false, true); }, 500);
+         } else {
+             if(res.error==='Unauthorized') logoutApp(); else toast(res.error,'err');
+         }
+     }).catch(function(){toast('Update failed','err');});
 }
 
 function settleRec(bid){
@@ -2013,13 +2047,22 @@ function settleRec(bid){
   r.payments.push({amount:0,date:today(),type:'Settled (Discount: '+cur(settleAmt)+')'});
   
   db.records=db.records.filter(function(x){return x.billId!==bid;});
-  // BUG FIX
   db.history.push(r);
   
   renderDues(); updBadges();
   
-  // BUG FIX
-  syncDB(function(){ toast('Account Settled & Synced!'); });
+  // 🔥 FAST ATOMIC API CALL 
+  var t = document.getElementById('toast'); t.textContent='Settling...'; t.className='toast inf show';
+  callAPI('updateRecord', {record: r, invUpdates: [], email: windowUSER_EMAIL, token: windowUSER_PASS})
+     .then(function(res){
+         if(res.success){
+             t.className='toast wok show'; t.textContent='Account Settled!';
+             setTimeout(function(){t.classList.remove('show');},2000);
+             setTimeout(function(){ fetchHeavyData(false, true); }, 500);
+         } else {
+             if(res.error==='Unauthorized') logoutApp(); else toast(res.error,'err');
+         }
+     }).catch(function(){toast('Update failed','err');});
 }
 
 // ── INVENTORY ──
