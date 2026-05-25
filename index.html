@@ -1530,14 +1530,12 @@ function confirmDispatch(){
   syncToast.textContent = 'Auto-syncing...';
   syncToast.className = 'toast inf show';
   
-  // 🔥 FAST API CALL: Isme hum 'newCustomer' pass kar rahe hain backend ke liye
+  // 🔥 FAST API CALL
   callAPI('saveNewRent', {record:rec, inventoryUpdates:invUpdates, newCounter:db.billCounter, email:windowUSER_EMAIL, token:windowUSER_PASS, newCustomer:savedCust})
     .then(function(res){
       if(res.success) { 
          syncToast.className='toast show wok'; syncToast.textContent='Synced ✔️';
          setTimeout(function(){syncToast.classList.remove('show');},2000);
-         // Instant refresh — backend se wapas Customer data fetch ho jayega
-         setTimeout(function(){ fetchHeavyData(false, true); }, 500);
       } else { 
          if(res.error==='Unauthorized') logoutApp(); else toast('Sync Error: '+res.error,'err'); 
       }
@@ -1897,7 +1895,6 @@ function confirmReturn(){
          if(res.success){
              t.className='toast wok show'; t.textContent='Return Saved & Synced!';
              setTimeout(function(){t.classList.remove('show');},2000);
-             setTimeout(function(){ fetchHeavyData(false, true); }, 500); // Silent sync update
          } else {
              if(res.error==='Unauthorized') logoutApp(); else toast(res.error,'err');
          }
@@ -2024,14 +2021,13 @@ function confirmPay(){
   
   closeM('m-pay'); renderDues(); updBadges();
   
-  // 🔥 FAST ATOMIC API CALL 
+  // 🔥 FAST ATOMIC API CALL (No more ghosting)
   var t = document.getElementById('toast'); t.textContent='Updating Payment...'; t.className='toast inf show';
   callAPI('updateRecord', {record: r, invUpdates: [], email: windowUSER_EMAIL, token: windowUSER_PASS})
      .then(function(res){
          if(res.success){
              t.className='toast wok show'; t.textContent='Payment Saved!';
              setTimeout(function(){t.classList.remove('show');},2000);
-             setTimeout(function(){ fetchHeavyData(false, true); }, 500);
          } else {
              if(res.error==='Unauthorized') logoutApp(); else toast(res.error,'err');
          }
@@ -2051,14 +2047,13 @@ function settleRec(bid){
   
   renderDues(); updBadges();
   
-  // 🔥 FAST ATOMIC API CALL 
+  // 🔥 FAST ATOMIC API CALL (No more ghosting)
   var t = document.getElementById('toast'); t.textContent='Settling...'; t.className='toast inf show';
   callAPI('updateRecord', {record: r, invUpdates: [], email: windowUSER_EMAIL, token: windowUSER_PASS})
      .then(function(res){
          if(res.success){
              t.className='toast wok show'; t.textContent='Account Settled!';
              setTimeout(function(){t.classList.remove('show');},2000);
-             setTimeout(function(){ fetchHeavyData(false, true); }, 500);
          } else {
              if(res.error==='Unauthorized') logoutApp(); else toast(res.error,'err');
          }
