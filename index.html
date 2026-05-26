@@ -1038,7 +1038,7 @@ window.onload = function() {
                 document.getElementById('ls').style.display='none';
                 toast('Welcome back! Syncing...', 'inf');
                 // Background silent refresh
-                setTimeout(function(){ fetchHeavyData(false, true); }, 500);
+                //setTimeout(function(){ fetchHeavyData(false, true); }, 500);
               } catch(e) { fetchHeavyData(false, false); }
             } else {
               fetchHeavyData(false, false);
@@ -1149,24 +1149,48 @@ function fetchHeavyData(isRefresh, isSilent) {
     });
 }
 
-// ── OPTIMISTIC GENERIC SYNC + AUTO REFRESH ──
+// ── OPTIMISTIC GENERIC SYNC (STABLE VERSION) ──
+
+let syncRunning = false;
+
 function syncDB(localCallback){
+  // LOCAL UI UPDATE
   if(localCallback) localCallback();
   updBadges();
+  // MULTIPLE SYNC BLOCK
+  if(syncRunning) return;
+  syncRunning = true;
   var syncToast = document.getElementById('toast');
-  syncToast.textContent='Saving...'; syncToast.className='toast inf show';
-  callAPI('fullSync', {dbJson:JSON.stringify(db), email:windowUSER_EMAIL, token:windowUSER_PASS})
-    .then(function(res){
-      if(res&&res.success){
-        syncToast.className='toast show wok'; syncToast.textContent='Saved ✔️';
-        setTimeout(function(){syncToast.classList.remove('show');},2000);
-        // 🔥 MAIN FIX: Ghosting rokne ke liye yahan se fetchHeavyData hata diya gaya hai
+  syncToast.textContent = 'Saving...';
+  syncToast.className = 'toast inf show';
+  callAPI('fullSync', {
+      dbJson: JSON.stringify(db),
+      email: windowUSER_EMAIL,
+      token: windowUSER_PASS
+  })
+  .then(function(res){
+      if(res && res.success){
+          syncToast.className = 'toast show wok';
+          syncToast.textContent = 'Saved ✔️';
+          setTimeout(function(){
+              syncToast.classList.remove('show');
+          }, 2000);
+          // ✅ AUTO REFRESH REMOVED
+          // fetchHeavyData REMOVED
       } else {
-        if(res&&res.error==='Unauthorized Access') logoutApp();
-        else toast('Save failed.','err');
+          if(res && res.error === 'Unauthorized Access'){
+              logoutApp();
+          } else {
+              toast('Save failed.','err');
+          }
       }
-    })
-    .catch(function(){ toast('Internet Error. Save failed!','err'); });
+  })
+  .catch(function(){
+      toast('Internet Error. Save failed!','err');
+  })
+  .finally(function(){
+      syncRunning = false;
+  });
 }
 
 function nextBillId(){db.billCounter=(db.billCounter||0)+1;return String(db.billCounter).padStart(3,'0');}
@@ -1988,7 +2012,7 @@ function saveDuesJE(){
              t.className='toast wok show'; t.textContent='Job Expense Saved!';
              setTimeout(function(){t.classList.remove('show');},2000);
              openDuesDetail(viewDuesBillId);
-             setTimeout(function(){ fetchHeavyData(false, true); }, 500);
+             //setTimeout(function(){ fetchHeavyData(false, true); }, 500);
          } else {
              if(res.error==='Unauthorized') logoutApp(); else toast(res.error,'err');
          }
