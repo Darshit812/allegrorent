@@ -1722,7 +1722,11 @@ function saveActiveEdit(){
     if(!inv){toast('Not in inventory: '+iname,'err');return;}
     
     var qty=parseInt(qin.value)||1;
-    if(qty > inv.availQty){toast('Only '+inv.availQty+' available for '+iname,'err');return;}
+    var totalForRepair = (inv.availQty || 0) + (inv.qtyRepair || 0) + (inv.qtyDamage || 0);
+    if(qty > totalForRepair) { 
+    toast('Not enough stock to send for repair!', 'err'); 
+    return; 
+    }
     
     newItems.push({name:iname, itemId:iid, qty:qty, _invRef: inv});
   }
