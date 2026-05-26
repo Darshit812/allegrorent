@@ -1161,8 +1161,7 @@ function syncDB(localCallback){
       if(res&&res.success){
         syncToast.className='toast show wok'; syncToast.textContent='Saved ✔️';
         setTimeout(function(){syncToast.classList.remove('show');},2000);
-        // ── INSTANT REFRESH: Save hone ke baad latest data lo ──
-        setTimeout(function(){ fetchHeavyData(false, true); }, 500);
+        // 🔥 MAIN FIX: Ghosting rokne ke liye yahan se fetchHeavyData hata diya gaya hai
       } else {
         if(res&&res.error==='Unauthorized Access') logoutApp();
         else toast('Save failed.','err');
@@ -2264,17 +2263,16 @@ function saveExpense(){
     var shopMob = document.getElementById('maint-mobile').value.trim();
     if(shopMob && !/^[0-9]{10}$/.test(shopMob)){toast('Enter valid 10-digit shop mobile!','err');return;}
     
-    // 🔒 STRICT LOCK: Description aur Instrument dono check honge
     if(!desc){toast('Work description is required!','err');return;}
     if(items.length === 0){toast('Add at least one instrument!','err');return;}
     
-    // Validation
+    // 🔥 NAYA VALIDATION: Sirf physically available items hi shop bhej sakte hain
     for(var i=0; i<items.length; i++){
       var inv=db.inventory.find(function(x){return String(x.name)===String(items[i].name) && String(x.itemId||'')===String(items[i].itemId||'');});
       if(inv){
-         var totalAvail = (inv.availQty||0) + (inv.qtyRepair||0);
+         var totalAvail = (inv.availQty||0) + (inv.qtyRepair||0) + (inv.qtyDamage||0);
          if(items[i].qty > totalAvail){
-             toast('BLOCKED! Only ' + totalAvail + ' available for ' + items[i].name, 'err'); return; 
+             toast('BLOCKED! Only ' + totalAvail + ' physically available for ' + items[i].name, 'err'); return; 
          }
       }
     }
@@ -2295,6 +2293,11 @@ function saveExpense(){
             inv.qtyRepair -= ded;
             qtyToDeduct -= ded;
         }
+        if(qtyToDeduct > 0 && inv.qtyDamage > 0) {
+            var dedDmg = Math.min(qtyToDeduct, inv.qtyDamage);
+            inv.qtyDamage -= dedDmg;
+            qtyToDeduct -= dedDmg;
+        }
         if(qtyToDeduct > 0) {
             inv.availQty -= qtyToDeduct;
             if(inv.availQty < 0) inv.availQty = 0;
@@ -2304,6 +2307,7 @@ function saveExpense(){
     
     ['maint-desc','maint-shop','maint-mobile','maint-amt','maint-paid','maint-rem'].forEach(function(id){document.getElementById(id).value='';});
     document.getElementById('maint-item-rows').innerHTML='';
+    renderInv(); // 🔥 UI TURANT UPDATE HOGA
     syncDB(function(){ renderMaintSection(); });
     
   // ── DAMAGE / MISSING BLOCK ──
@@ -2312,15 +2316,17 @@ function saveExpense(){
     var items2=getMaintItemsList('dmg-item-rows');
     var amt2=parseFloat(document.getElementById('dmg-amt').value)||0;
     
-    // 🔒 STRICT LOCK: Description aur Instrument dono check honge
     if(!desc2){toast('Description is required!','err');return;}
     if(items2.length === 0){toast('Add at least one instrument!','err');return;}
     
-    // Validation
+    // 🔥 NAYA VALIDATION: Rented items ko directly damage me dalne se rokna
     for(var j=0; j<items2.length; j++){
       var inv2=db.inventory.find(function(x){return String(x.name)===String(items2[j].name) && String(x.itemId||'')===String(items2[j].itemId||'');});
-      if(inv2 && items2[j].qty > inv2.totalQty){
-         toast('BLOCKED! Total Stock is only ' + inv2.totalQty + ' for ' + items2[j].name, 'err'); return; 
+      if(inv2){
+         var physicallyAvail = (inv2.availQty||0) + (inv2.qtyDamage||0) + (inv2.qtyMissing||0) + (inv2.qtyRepair||0);
+         if(items2[j].qty > physicallyAvail){
+            toast('BLOCKED! Only ' + physicallyAvail + ' items are physically available for ' + items2[j].name, 'err'); return; 
+         }
       }
     }
 
@@ -2328,7 +2334,7 @@ function saveExpense(){
     items2.forEach(function(it){
       var inv=db.inventory.find(function(i){return String(i.name)===String(it.name) && String(i.itemId||'')===String(it.itemId||'');});
       if(inv){
-        inv.totalQty = Math.max(0, inv.totalQty - it.qty);
+        inv.totalQty = Math.max(0, inv.totalQty - it.qty); // Permanent Loss
         var qtyToDeduct = it.qty;
         
         if(cat === 'Damage' && inv.qtyDamage > 0) {
@@ -2353,6 +2359,7 @@ function saveExpense(){
     
     ['dmg-desc','dmg-amt','dmg-rem'].forEach(function(id){document.getElementById(id).value='';});
     document.getElementById('dmg-item-rows').innerHTML='';
+    renderInv(); // 🔥 UI TURANT UPDATE HOGA
     syncDB(function(){}); 
     
   // ── REGULAR EXPENSE BLOCK ──
@@ -2449,13 +2456,8 @@ function autoFillExpense(idx, cond) {
     return;
   }
 
-  // ── INSTANT TAG CLEAR (Double-click/double-entry prevention) ──
-  // Tag turant zero karo — dobara click nahi ho sakta
-  if(cond === 'Need Repair') item.qtyRepair = 0;
-  if(cond === 'Damage')      item.qtyDamage = 0;
-  if(cond === 'Missing')     item.qtyMissing = 0;
-  renderInv();   // Stock list turant update ho
-  updBadges();   // Badge bhi turant hatao
+  // 🔥 MAIN FIX: "item.qtyRepair = 0" jaisi tag clear karne wali lines hata di gayi hain,
+  // Taaki saveExpense function properly bucket se qty minus kare aur available stock kharab na ho.
 
   sw('expense');
 
@@ -2485,7 +2487,7 @@ function autoFillExpense(idx, cond) {
       window.scrollTo({top: 0, behavior: 'smooth'});
   }, 400);
   
-  toast('Auto-filled! Tag cleared. Amount daalo aur Save karo.', 'inf');
+  toast('Auto-filled! Amount daalo aur Save karo.', 'inf');
 }
 
 // ── HISTORY ──
@@ -3859,8 +3861,6 @@ setInterval(function(){
     fetchHeavyData(false, true); // silent = true, koi loader nahi dikhega
   }
 }, 2 * 60 * 1000); // 2 minutes
-
-
 
 </script>
 </body>
