@@ -1813,6 +1813,7 @@ function openReturn(bid){
   document.getElementById('m-return').classList.add('open');
 }
 
+// ── CONFIRM RETURN (WITH ALL CONDITIONS MAPPED) ──
 function confirmReturn(){
   var r=db.records.find(function(x){return x.billId===retId;});if(!r)return;
   var retJE=getJE('ret-je-rows');
@@ -1834,31 +1835,26 @@ function confirmReturn(){
     var cond=document.getElementById('rc-'+key).value;
     
     if(qty > 0 && cond !== 'Working') {
-       badConditions.push(it.name + ' (' + cond + ' At time of Received)');
+       badConditions.push(it.name + ' (' + cond + ')');
     }
 
     it.remaining-=qty;if(it.remaining>0)allDone=false;
     var inv=db.inventory.find(function(i){return String(i.name)===String(it.name) && String(i.itemId||'')===String(it.itemId||'');});
     
     if(inv){
-      if(cond==='Working') { 
-         inv.availQty += qty; 
-      }
-      else if(cond==='Need Repair'){ 
-         inv.qtyRepair = (inv.qtyRepair || 0) + qty; 
-      }
-      else if(cond==='Damage'){ 
-         inv.qtyDamage = (inv.qtyDamage || 0) + qty;
-      }
-      else if(cond==='Missing'){ 
-         inv.qtyMissing = (inv.qtyMissing || 0) + qty;
-      }
+      if(cond==='Working') { inv.availQty += qty; }
+      else if(cond==='Need Repair'){ inv.qtyRepair = (inv.qtyRepair || 0) + qty; }
+      else if(cond==='Damage'){ inv.qtyDamage = (inv.qtyDamage || 0) + qty; }
+      else if(cond==='Missing'){ inv.qtyMissing = (inv.qtyMissing || 0) + qty; }
+      else if(cond==='At Shop' || cond==='at shop' || cond==='At shop'){ inv.qtyAtShop = (inv.qtyAtShop || 0) + qty; } // 🔥 MISSING LOGIC ADDED
+      
       invUpdates.push({
         name:inv.name, itemId:inv.itemId||'',
         newAvailQty: inv.availQty,
         newQtyRepair: inv.qtyRepair || 0,
         newQtyDamage: inv.qtyDamage || 0,
-        newQtyMissing: inv.qtyMissing || 0
+        newQtyMissing: inv.qtyMissing || 0,
+        newQtyAtShop: inv.qtyAtShop || 0
       }); 
     }
   });
@@ -1879,16 +1875,18 @@ function confirmReturn(){
   
   if(allDone){
     if(r.balance>0) r.status='dues';
-    else { 
+    else {
       r.status='closed';
       db.records=db.records.filter(function(x){return x.billId!==r.billId;});
       db.history.push(r); 
     }
   }
   
-  closeM('m-return'); renderActive(); updBadges();
+  closeM('m-return'); 
+  renderActive(); 
+  renderDues(); 
+  updBadges();
   
-  // 🔥 FAST ATOMIC API CALL 
   var t = document.getElementById('toast'); t.textContent='Processing Return...'; t.className='toast inf show';
   callAPI('updateRecord', {record: r, invUpdates: invUpdates, email: windowUSER_EMAIL, token: windowUSER_PASS})
      .then(function(res){
