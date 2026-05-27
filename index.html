@@ -3854,13 +3854,6 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// ── AUTO SYNC: Har 2 minute mein background silent sync ──
-setInterval(function(){
-  if(windowUSER_EMAIL && windowUSER_PASS) {
-    fetchHeavyData(false, true); // silent = true, koi loader nahi dikhega
-  }
-}, 2 * 60 * 1000); // 2 minutes
-
 </script>
 </body>
 </html>
