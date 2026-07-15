@@ -1906,21 +1906,40 @@ function renderDues(){
   var list=document.getElementById('dues-list');
   var dues=db.records.filter(function(r){return r.status==='dues';});
   if(!dues.length){list.innerHTML='<div class="empty"><div class="big">No pending dues</div></div>';return;}
+  
   list.innerHTML=dues.map(function(r){
     var bid=r.billId;
-    return '<div class="rc" data-dues-detail="'+bid+'">'+
-      '<div class="rc-top">'+
-        '<div class="rc-name">'+r.party+'<br><span class="rm">'+r.mobile+' | #'+bid+'</span></div>'+
-        '<div class="rc-amt">'+cur(r.balance)+'</div>'+
-        '<div class="rc-acts">'+
-          '<button class="btn bg2 bxs" data-dues-pay="'+bid+'">Pay</button>'+
+    var jeTotal = (r.jobExp||[]).reduce(function(s,e){return s+e.amt;},0);
+    // Exp HTML (Agar expense hai toh dikhega)
+    var jeHtml = jeTotal > 0 ? '<span style="color:var(--accent);font-weight:800;font-size:11px;">Exp: '+cur(jeTotal)+'</span>' : '';
+
+    return '<div class="rc" data-dues-detail="'+bid+'" style="padding:10px 12px; display:flex; flex-direction:column; gap:6px;">'+
+      
+      // ── ROW 1: Name ──
+      '<div class="rc-name" style="font-size:14px;">'+r.party+'</div>'+
+      
+      // ── ROW 2: Date | Rent Amount | Pay & Settle ──
+      '<div style="display:flex; justify-content:space-between; align-items:center;">'+
+        '<div class="rm" style="width:30%; text-align:left;">'+fmtDate(r.dispatchDate)+'</div>'+
+        '<div class="rc-amt" style="width:35%; text-align:center;">'+cur(r.balance)+'</div>'+
+        '<div style="width:35%; text-align:right;">'+
+          '<button class="btn bg2 bxs" data-dues-pay="'+bid+'">Pay</button> '+
           '<button class="btn br bxs" data-dues-settle="'+bid+'">Settle</button>'+
-          '<button class="btn bxs" data-dues-wa="'+bid+'" style="background:#25D366;color:#fff;font-weight:700;font-size:11px;padding:4px 7px;"><i class="fab fa-whatsapp" style="font-size:14px;"></i> WA</button>'+
         '</div>'+
       '</div>'+
-      '<div style="font-size:11px;color:var(--muted);margin-top:4px;">&#128073; Tap card for details</div>'+
+      
+      // ── ROW 3: Bill No | Exp Rs | WA ──
+      '<div style="display:flex; justify-content:space-between; align-items:center;">'+
+        '<div class="rm" style="width:30%; text-align:left;">#'+bid+'</div>'+
+        '<div style="width:35%; text-align:center;">'+jeHtml+'</div>'+
+        '<div style="width:35%; text-align:right;">'+
+          '<button class="btn bxs" data-dues-wa="'+bid+'" style="background:#25D366;color:#fff;font-weight:700;font-size:11px;padding:4px 15px;"><i class="fab fa-whatsapp" style="font-size:14px;"></i> WA</button>'+
+        '</div>'+
+      '</div>'+
+      
     '</div>';
   }).join('');
+  
   list.onclick=function(e){
     var b=e.target.closest('[data-dues-pay],[data-dues-settle],[data-dues-wa]');
     if(b){
@@ -3122,16 +3141,24 @@ function renderHistory(){
     list.innerHTML=hist.map(function(r){
       var paid=r.payments.reduce(function(s,p){return s+p.amount;},0);
       var bid=r.billId;
+      
+      var jeTotal = (r.jobExp||[]).reduce(function(s,e){return s+e.amt;},0);
+      var jeHtml = jeTotal > 0 ? '<span style="color:var(--red);font-weight:800;">Exp: '+cur(jeTotal)+'</span>' : '';
+
       return '<div class="rc" data-hbid="'+bid+'">'+
         '<div class="rc-top">'+
+          // 🔥 NAYA LOGIC: fmtDate(r.dispatchDate) ko yahan add kiya gaya hai
           '<div class="rc-name">#'+bid+' '+r.party+'<br>'+
-          '<span class="rm">Paid: '+cur(paid)+'</span></div>'+
+          '<span class="rm">'+fmtDate(r.dispatchDate)+' | Paid: '+cur(paid)+'</span></div>'+
           '<div style="font-weight:800;font-size:15px;color:var(--green);">'+cur(r.rent)+'</div>'+
           '<span class="sbg '+(r.settled?'so2':'sw')+'" style="margin-left:6px;">'+(r.settled?'Settled':'Paid')+'</span>'+
         '</div>'+
-        '<div style="font-size:11px;color:var(--muted);margin-top:4px;">Tap for details</div>'+
+        '<div style="font-size:11px;color:var(--muted);margin-top:4px;display:flex;justify-content:space-between;align-items:center;">'+
+          '<span>Tap for details</span>' + jeHtml +
+        '</div>'+
       '</div>';
     }).join('');
+    
     list.onclick=function(e){
       var card=e.target.closest('[data-hbid]');
       if(card)openHistDetail(card.getAttribute('data-hbid'));
